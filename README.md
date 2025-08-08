@@ -1,2 +1,2 @@
 # helper-repo
-a repo used to make bots that interact with repos
+a repo used to test bots that interact with repos
