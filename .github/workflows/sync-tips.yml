@@ -1,0 +1,19 @@
+name: sync tips
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [ main ]
+
+jobs:
+  call-sync-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger sync
+        run: |
+          curl -sS -X POST \
+            -H "x-sync-secret: ${{ secrets.SYNC_SECRET }}" \
+            "$SYNC_ENDPOINT"
+        env:
+          SYNC_ENDPOINT: ${{ secrets.SYNC_ENDPOINT }}
