@@ -11,14 +11,22 @@ jobs:
   call-sync-endpoint:
     runs-on: ubuntu-latest
     env:
-      SYNC_ENDPOINT: ${{ vars.SYNC_ENDPOINT }}   # use vars. if you stored it as a secret, use secrets.SYNC_ENDPOINT
+      SYNC_ENDPOINT: ${{ vars.SYNC_ENDPOINT }}   # must be: https://<ngrok-or-site>/api/sync-tips
       SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
     steps:
+      - name: show endpoint (sanity)
+        run: |
+          echo "SYNC_ENDPOINT=$SYNC_ENDPOINT"
+          echo "$SYNC_ENDPOINT" | grep -q "/api/sync-tips" || { echo "SYNC_ENDPOINT must include /api/sync-tips"; exit 1; }
+
+      - name: slight delay if pr just closed (avoid race)
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' }}
+        run: sleep 5
+
       - name: trigger sync (skip fork prs)
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          test -n "$SYNC_ENDPOINT" || { echo "missing SYNC_ENDPOINT"; exit 1; }
           test -n "$SYNC_SECRET" || { echo "missing SYNC_SECRET"; exit 1; }
-          curl -fsS --retry 3 -X POST \
-            -H "x-sync-secret: $SYNC_SECRET" \
-            "$SYNC_ENDPOINT"
+          body="$(curl -fsS --retry 3 -X POST -H "x-sync-secret: $SYNC_SECRET" "$SYNC_ENDPOINT")"
+          echo "response: $body"
+          echo "$body" | grep -q '"ok":true' || { echo "sync failed"; exit 1; }
