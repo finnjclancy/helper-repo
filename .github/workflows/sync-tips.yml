@@ -4,16 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   call-sync-endpoint:
     runs-on: ubuntu-latest
+    env:
+      SYNC_ENDPOINT: ${{ vars.SYNC_ENDPOINT }}   # use vars. if you stored it as a secret, use secrets.SYNC_ENDPOINT
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
     steps:
-      - name: trigger sync
+      - name: trigger sync (skip fork prs)
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          curl -sS -X POST \
-            -H "x-sync-secret: ${{ secrets.SYNC_SECRET }}" \
+          test -n "$SYNC_ENDPOINT" || { echo "missing SYNC_ENDPOINT"; exit 1; }
+          test -n "$SYNC_SECRET" || { echo "missing SYNC_SECRET"; exit 1; }
+          curl -fsS --retry 3 -X POST \
+            -H "x-sync-secret: $SYNC_SECRET" \
             "$SYNC_ENDPOINT"
-        env:
-          SYNC_ENDPOINT: ${{ secrets.SYNC_ENDPOINT }}
